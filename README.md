@@ -2,17 +2,21 @@
 
 A personal native Android dialer for Samsung phones: human-centered recents, restrained frosted glass surfaces, a readable UI, and a three-item navigation dock with a subtle held-state lens interaction.
 
-## Current slice
+## Current implementation
 
-This repository contains the first Compose vertical slice:
+The Compose app now contains a functional dialer shell with familiar phone-app information architecture:
 
-- Dark-first Recents screen with Today / Yesterday grouping
-- Collapsing `Phone` hero and sticky call search bar
-- Frosted section surfaces and restrained call-row metadata
-- Keypad / Recents / Contacts bottom dock
-- Long-press dock feedback for the lens state
-- Three-dot menu shell
+- Keypad with digit entry, formatting-safe long-number sizing, delete, long-press clear, and tactile press feedback
+- Contact matching while typing a number
+- Recents grouped into Today / Yesterday with incoming, outgoing, missed, duration, SIM, and call actions
+- Contacts with alphabetical browsing, search, favorites filtering, contact avatars, and quick call
+- Contact detail view with favorite action, call action, and call history
+- Central material roles (`Clear`, `Frosted`, `Obscured`) and shared visual tokens
+- Dynamic environmental background that stays behind the material system
+- Responsive bottom navigation with 48dp-class touch targets and accessibility labels
 - `ACTION_CALL` foundation with runtime `CALL_PHONE` permission
+
+The Android Telecom / `InCallService` layer is intentionally the next integration boundary. The current build hands calls to the native phone service, which keeps real calling safe while the in-app dialer UI is developed incrementally.
 
 ## Build
 
