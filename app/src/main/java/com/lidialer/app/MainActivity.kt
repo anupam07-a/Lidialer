@@ -111,18 +111,23 @@ data class CallEntry(
     val time: String,
     val type: CallType,
     val initials: String,
-    val tint: Color
+    val tint: Color,
+    val sim: Int
 )
 enum class CallType { INCOMING, OUTGOING, MISSED }
 
 private val today = listOf(
-    CallEntry("Maya Sharma", "+91 98765 43210", "10:42 AM", CallType.INCOMING, "MS", Color(0xFF46535B)),
-    CallEntry("Arjun Mehta", "+91 99887 12004", "09:21 AM", CallType.OUTGOING, "AM", Color(0xFF5B4F48)),
-    CallEntry("Rhea Kapoor", "+91 98110 66102", "08:54 AM", CallType.MISSED, "RK", Color(0xFF50485A))
+    CallEntry("Aritra Roy", "+91 98765 43210", "10:24 AM", CallType.OUTGOING, "AR", Color(0xFF46535B), 1),
+    CallEntry("Sohan Das", "+91 99887 12004", "09:42 AM", CallType.MISSED, "SD", Color(0xFF5B4F48), 2),
+    CallEntry("Priya Patel", "+91 98110 66102", "08:17 AM", CallType.INCOMING, "PP", Color(0xFF50485A), 1),
+    CallEntry("Rohit Kumar", "+91 98200 40971", "07:56 AM", CallType.OUTGOING, "RK", Color(0xFF46574F), 2),
+    CallEntry("Tanmay Sen", "+91 98990 77421", "06:33 AM", CallType.INCOMING, "TS", Color(0xFF5A5144), 1)
 )
 private val yesterday = listOf(
-    CallEntry("Nikhil Verma", "+91 98200 40971", "Yesterday, 6:18 PM", CallType.MISSED, "NV", Color(0xFF46574F)),
-    CallEntry("Samira Khan", "+91 98990 77421", "Yesterday, 2:06 PM", CallType.INCOMING, "SK", Color(0xFF5A5144))
+    CallEntry("Sneha Kapoor", "+91 98200 40971", "11:12 PM", CallType.MISSED, "SK", Color(0xFF46574F), 1),
+    CallEntry("Arjun Verma", "+91 98990 77421", "08:45 PM", CallType.OUTGOING, "AV", Color(0xFF5A5144), 2),
+    CallEntry("Meera Khan", "+91 98110 66102", "05:21 PM", CallType.INCOMING, "MK", Color(0xFF50485A), 1),
+    CallEntry("Dev Singh", "+91 98765 43210", "03:18 PM", CallType.OUTGOING, "DS", Color(0xFF46535B), 2)
 )
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -139,7 +144,15 @@ private fun LidialerApp() {
     val heroScale by animateFloatAsState(if (scrolled) .72f else 1f, label = "hero-scale")
     val heroAlpha by animateFloatAsState(if (scrolled) .08f else 1f, label = "hero-alpha")
 
-    Box(Modifier.fillMaxSize().background(Canvas)) {
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.radialGradient(
+                colors = listOf(Color(0xFF0B3976), Color(0xFF071426), Canvas),
+                center = androidx.compose.ui.geometry.Offset(0f, 0f),
+                radius = 1050f
+            )
+        )
+    ) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
@@ -147,13 +160,19 @@ private fun LidialerApp() {
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
-                Box(Modifier.fillMaxWidth().height(184.dp), contentAlignment = Alignment.CenterStart) {
-                    Column(Modifier.graphicsLayer { scaleX = heroScale; scaleY = heroScale; alpha = heroAlpha }) {
-                        Text("LIDIALER", color = Accent, fontSize = 11.sp, letterSpacing = 3.2.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(10.dp))
-                        Text("Phone", color = Ink, fontSize = 51.sp, lineHeight = 52.sp, fontWeight = FontWeight.Light, fontFamily = FontFamily.SansSerif)
-                        Spacer(Modifier.height(13.dp))
-                        Text("Your calls, at a human pace.", color = Muted, fontSize = 14.sp)
+                Box(Modifier.fillMaxWidth().height(142.dp), contentAlignment = Alignment.CenterStart) {
+                    Row(
+                        Modifier.fillMaxWidth().graphicsLayer { scaleX = heroScale; scaleY = heroScale; alpha = heroAlpha },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("LIDIALER", color = Ink, fontSize = 35.sp, letterSpacing = (-1.2).sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(12.dp))
+                        Box(Modifier.size(27.dp).clip(CircleShape).background(Color(0xFF182A35)), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(11.dp).clip(CircleShape).background(Color(0xFF31E5A4)))
+                        }
+                        Spacer(Modifier.weight(1f))
+                        IconButton(onClick = {}) { Icon(Icons.Outlined.FilterList, "Sort", tint = Ink) }
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Outlined.MoreVert, "More", tint = Ink) }
                     }
                 }
             }
@@ -199,7 +218,7 @@ private fun LidialerApp() {
 private fun Section(title: String, calls: List<CallEntry>, context: android.content.Context, permission: androidx.activity.result.ActivityResultLauncher<String>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title.uppercase(Locale.getDefault()), color = Muted, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
-        Surface(shape = RoundedCornerShape(22.dp), color = Glass, tonalElevation = 0.dp) {
+        Surface(shape = RoundedCornerShape(24.dp), color = Glass.copy(alpha = .78f), tonalElevation = 0.dp, border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2B4667).copy(alpha = .72f))) {
             Column {
                 calls.forEachIndexed { index, call ->
                     CallRow(call) {
@@ -222,17 +241,23 @@ private fun CallRow(call: CallEntry, onCall: () -> Unit) {
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(call.name, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(call.name, color = if (call.type == CallType.MISSED) Missed else Ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val typeColor = if (call.type == CallType.MISSED) Missed else Muted
-                Icon(if (call.type == CallType.INCOMING) Icons.Outlined.CallReceived else if (call.type == CallType.OUTGOING) Icons.Outlined.CallMade else Icons.Outlined.CallMissed, null, tint = typeColor, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(call.number, color = Muted, fontSize = 12.sp)
+                val typeColor = if (call.type == CallType.MISSED) Missed else if (call.type == CallType.OUTGOING) Color(0xFF4CE5A5) else Color(0xFF79A8FF)
+                Icon(if (call.type == CallType.INCOMING) Icons.Outlined.CallReceived else if (call.type == CallType.OUTGOING) Icons.Outlined.CallMade else Icons.Outlined.CallMissed, null, tint = typeColor, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(7.dp))
+                Text(call.number, color = Muted, fontSize = 12.sp, maxLines = 1)
             }
         }
+        Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFF2A3A52).copy(alpha = .55f), border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF425572).copy(alpha = .55f))) {
+            Text("SIM ${call.sim}", color = Muted, fontSize = 10.sp, letterSpacing = 1.5.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+        }
+        Spacer(Modifier.width(10.dp))
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(call.time.substringAfterLast(", "), color = Muted, fontSize = 11.sp)
-            Icon(Icons.Outlined.Call, "Call ${call.name}", tint = if (call.type == CallType.MISSED) Missed else Accent, modifier = Modifier.size(18.dp))
+            Text(call.time, color = if (call.type == CallType.MISSED) Missed else Muted, fontSize = 11.sp)
+            Box(Modifier.size(25.dp).clip(CircleShape).background(Color(0xFF213451).copy(alpha = .7f)), contentAlignment = Alignment.Center) {
+                Text("›", color = Muted, fontSize = 22.sp, fontWeight = FontWeight.Light)
+            }
         }
     }
 }
