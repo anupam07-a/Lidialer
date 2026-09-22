@@ -22,9 +22,11 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -35,6 +37,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -80,6 +83,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -92,6 +96,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private object LidialerTokens {
     val ink = Color(0xFFF3F4F3)
@@ -299,4 +305,78 @@ private fun Keypad(number: String, onDigit: (String) -> Unit, onDelete: () -> Un
 private fun DialKey(digit: String, letters: String, onClick: () -> Unit) { var pressed by remember { mutableStateOf(false) }; val scale by animateFloatAsState(if (pressed) .94f else 1f, animationSpec = spring(stiffness = 700f), label = "key-$digit"); Column(Modifier.size(82.dp).scale(scale).clip(CircleShape).background(Color.White.copy(alpha = .07f)).pointerInput(Unit) { detectTapGestures(onPress = { pressed = true; tryAwaitRelease(); pressed = false }, onTap = { onClick() }) }.padding(top = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(digit, color = LidialerTokens.ink, fontSize = 27.sp, fontFamily = LidialerTokens.display); Text(letters, color = LidialerTokens.muted, fontSize = 9.sp, letterSpacing = 1.7.sp) } }
 
 @Composable
-private fun BottomNav(selected: Int, onSelected: (Int) -> Unit) { Surface(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), shape = RoundedCornerShape(28.dp), color = Color.White.copy(alpha = .08f), border = BorderStroke(1.dp, LidialerTokens.outline)) { Row(Modifier.fillMaxWidth().padding(7.dp), horizontalArrangement = Arrangement.SpaceEvenly) { listOf("Keypad" to Icons.Outlined.Grid3x3, "Recents" to Icons.Outlined.Call, "Contacts" to Icons.Outlined.Contacts).forEachIndexed { index, item -> val active = selected == index; Surface(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).clickable(role = Role.Tab, onClick = { onSelected(index) }), shape = RoundedCornerShape(22.dp), color = if (active) Color.White.copy(alpha = .14f) else Color.Transparent) { Column(Modifier.padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(item.second, item.first, tint = if (active) LidialerTokens.ink else LidialerTokens.muted, modifier = Modifier.size(20.dp)); Text(item.first, color = if (active) LidialerTokens.ink else LidialerTokens.muted, fontSize = 10.sp) } } } } } }
+private fun BottomNav(selected: Int, onSelected: (Int) -> Unit) {
+    val items = listOf("Keypad" to Icons.Outlined.Grid3x3, "Recents" to Icons.Outlined.Call, "Contacts" to Icons.Outlined.Contacts)
+    var dragging by remember { mutableStateOf(false) }
+    var dragPosition by remember { mutableStateOf(selected.toFloat()) }
+    val visualPosition by animateFloatAsState(
+        targetValue = if (dragging) dragPosition else selected.toFloat(),
+        animationSpec = spring(stiffness = 520f, dampingRatio = .82f),
+        label = "dock-lens-position"
+    )
+
+    Surface(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(45.dp),
+        color = Color.White.copy(alpha = .075f),
+        border = BorderStroke(1.dp, LidialerTokens.outline)
+    ) {
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().height(88.dp)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { dragging = true; dragPosition = selected.toFloat() },
+                        onHorizontalDrag = { change, amount ->
+                            change.consume()
+                            val slot = size.width.toFloat() / 3f
+                            dragPosition = (dragPosition + amount / slot).coerceIn(0f, 2f)
+                        },
+                        onDragEnd = {
+                            dragging = false
+                            val destination = dragPosition.roundToInt().coerceIn(0, 2)
+                            dragPosition = destination.toFloat()
+                            onSelected(destination)
+                        },
+                        onDragCancel = { dragging = false; dragPosition = selected.toFloat() }
+                    )
+                }
+        ) {
+            val slotWidth = maxWidth / 3f
+            val center = slotWidth * (visualPosition + .5f)
+            val distanceFromNearest = abs(visualPosition - visualPosition.roundToInt()).coerceIn(0f, .5f)
+            val lensWidth = (118.dp - distanceFromNearest * 24.dp).coerceIn(82.dp, 122.dp)
+            val motionBlur = (abs(dragPosition - selected) * 1.7f).coerceIn(0f, 1f)
+
+            // One lens is reused and moved; it is never destroyed/recreated per tab.
+            Box(
+                Modifier.align(Alignment.CenterStart)
+                    .offset { IntOffset((center - lensWidth / 2).roundToPx(), 0) }
+                    .size(lensWidth, 68.dp)
+                    .clip(RoundedCornerShape(36.dp))
+                    .background(Color.White.copy(alpha = .095f + motionBlur * .035f))
+                    .then(Modifier)
+            ) {
+                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color.White.copy(alpha = .10f), Color.Transparent, Color.White.copy(alpha = .06f)))))
+            }
+
+            Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                items.forEachIndexed { index, item ->
+                    val distance = abs(visualPosition - index.toFloat()).coerceIn(0f, 1.5f)
+                    val labelAlpha = (1f - distance * 1.45f).coerceIn(0f, 1f)
+                    val iconScale = 1f + labelAlpha * .10f
+                    val tint by animateColorAsState(if (labelAlpha > .35f) LidialerTokens.ink else LidialerTokens.muted, label = "dock-tint-$index")
+                    Box(
+                        Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(36.dp))
+                            .clickable(role = Role.Tab, onClick = { dragPosition = index.toFloat(); onSelected(index) }),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                            Icon(item.second, item.first, tint = tint, modifier = Modifier.size(23.dp).scale(iconScale))
+                            Text(item.first, color = LidialerTokens.ink.copy(alpha = labelAlpha), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 8.dp).width((54f * labelAlpha).dp), maxLines = 1, overflow = TextOverflow.Clip)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
